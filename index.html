@@ -246,6 +246,52 @@
     .browse-arrow { color: var(--accent); font-size: 0.83rem; flex-shrink: 0; }
     .browse-tgt   { font-size: 0.84rem; color: var(--brun-light); font-style: italic; }
 
+    /* ── GRAMMAIRE ── */
+    .gram-group { margin-bottom: 0.38rem; }
+
+    .gram-header {
+      display: flex; align-items: center;
+      background: var(--bleu); color: #ffffff;
+      border-radius: 8px; padding: 0.65rem 1rem;
+      cursor: pointer; user-select: none;
+      transition: background 0.18s;
+    }
+    .gram-header:hover { background: var(--bleu-clair); }
+    .gram-header.open  { border-radius: 8px 8px 0 0; background: var(--bleu-clair); }
+
+    .gram-titre {
+      flex: 1;
+      font-family: 'Playfair Display', serif;
+      font-size: 0.97rem; font-weight: 700;
+    }
+    .gram-count  { font-size: 0.7rem; opacity: 0.7; margin-right: 0.6rem; }
+    .gram-chevron { font-size: 0.72rem; transition: transform 0.22s; }
+    .gram-header.open .gram-chevron { transform: rotate(180deg); }
+
+    .gram-body {
+      display: none;
+      border-radius: 0 0 8px 8px;
+      overflow: hidden;
+      box-shadow: 0 3px 10px rgba(0,101,163,0.08);
+    }
+    .gram-body.open { display: block; }
+
+    .gram-row {
+      display: flex; align-items: center;
+      padding: 0.55rem 1rem; gap: 0.7rem;
+      transition: background 0.1s;
+    }
+    .gram-row:nth-child(odd)  { background: var(--strip-pair); }
+    .gram-row:nth-child(even) { background: var(--strip-impair); }
+    .gram-row:hover { background: rgba(0,101,163,0.06) !important; }
+
+    .gram-src {
+      font-size: 0.93rem; font-weight: 700;
+      color: var(--brun); min-width: 42%;
+    }
+    .gram-arrow { color: var(--accent); font-size: 0.83rem; flex-shrink: 0; }
+    .gram-tgt   { font-size: 0.86rem; color: var(--brun-light); font-style: italic; }
+
     /* ── EXPRESSIONS ── */
     #expressions-zone {
       margin: 0.5rem 1rem 2rem;
@@ -334,6 +380,7 @@
 <div id="view-tabs">
   <button class="tab-btn active"  id="tab-search"      onclick="setTab('search')">🔍 Recherche</button>
   <button class="tab-btn"         id="tab-browse"      onclick="setTab('browse')">📖 Dictionnaire</button>
+  <button class="tab-btn"         id="tab-grammaire"   onclick="setTab('grammaire')">📝 Grammaire</button>
   <button class="tab-btn"         id="tab-expressions" onclick="setTab('expressions')">💬 Expressions</button>
 </div>
 
@@ -349,6 +396,9 @@
 
 <!-- ── DICTIONNAIRE (accordion par lettre) ── -->
 <div id="browse-zone"></div>
+
+<!-- ── GRAMMAIRE ── -->
+<div id="grammaire-zone" style="margin:0.5rem 1rem 2rem; display:none;"></div>
 
 <!-- ── EXPRESSIONS ── -->
 <div id="expressions-zone">
@@ -368,24 +418,31 @@
   // ╚══════════════════════════════════════════════════════╝
   const SHEET_DICO        = 'https://docs.google.com/spreadsheets/d/1_3mqc7SEnCo_7LywBkragMgukzZ9M8NT7YKMski3wSM/export?format=csv&gid=0';
   const SHEET_EXPRESSIONS = 'https://docs.google.com/spreadsheets/d/1_3mqc7SEnCo_7LywBkragMgukzZ9M8NT7YKMski3wSM/export?format=csv&gid=1734011386';
+  const SHEET_GRAMMAIRE   = 'https://docs.google.com/spreadsheets/d/1_3mqc7SEnCo_7LywBkragMgukzZ9M8NT7YKMski3wSM/export?format=csv&gid=697526515';
   // ════════════════════════════════════════════════════════
 
   let dictionary   = [];
   let expressions  = [];
+  let grammaire    = [];
   let direction    = 'fr';
   let currentTab   = 'search';
   let openLetters  = new Set();
+  let openGrammaire = new Set();
 
   // ── Démarrage ──
   window.addEventListener('load', () => {
     const hasDico = SHEET_DICO && SHEET_DICO !== 'VOTRE_LIEN_FEUILLE_DICTIONNAIRE';
     const hasExpr = SHEET_EXPRESSIONS && SHEET_EXPRESSIONS !== 'VOTRE_LIEN_FEUILLE_EXPRESSIONS';
+    const hasGram = SHEET_GRAMMAIRE && SHEET_GRAMMAIRE !== 'VOTRE_LIEN_FEUILLE_GRAMMAIRE';
 
     if (hasDico) loadSheet(SHEET_DICO, 'dico');
     else { loadDemoDict(); }
 
     if (hasExpr) loadSheet(SHEET_EXPRESSIONS, 'expr');
     else { loadDemoExpr(); }
+
+    if (hasGram) loadSheet(SHEET_GRAMMAIRE, 'gram');
+    else { loadDemoGram(); }
   });
 
   // ── Chargement Google Sheets ──
@@ -396,12 +453,12 @@
       const res = await fetch(proxy);
       if (!res.ok) throw new Error('Accès refusé');
       const text = await res.text();
-      if (type === 'dico') parseCSV(text, 'dico');
-      else                  parseCSV(text, 'expr');
+      parseCSV(text, type);
     } catch(e) {
       setStatus('❌ Erreur chargement — données de démo activées', 'err');
       if (type === 'dico') loadDemoDict();
-      else                  loadDemoExpr();
+      else if (type === 'expr') loadDemoExpr();
+      else loadDemoGram();
     }
   }
 
@@ -418,14 +475,26 @@
     if (type === 'dico') {
       dictionary = data.length ? data : demoDict();
       onDicoReady();
-    } else {
+    } else if (type === 'expr') {
       expressions = data.length ? data : demoExpr();
       onExprReady();
+    } else {
+      // grammaire : col A = titre section, col B = texte français, col C = texte patois
+      const raw = [];
+      const lines2 = text.trim().split('\n');
+      const start2 = isHeader(lines2[0]) ? 1 : 0;
+      for (let i = start2; i < lines2.length; i++) {
+        const cols2 = splitCSV(lines2[i]);
+        raw.push({ a: (cols2[0]||'').trim(), b: (cols2[1]||'').trim(), c: (cols2[2]||'').trim() });
+      }
+      grammaire = raw.length ? buildGrammaireSections(raw) : buildGrammaireSections(demoGramRaw());
+      onGramReady();
     }
   }
 
   function loadDemoDict() { dictionary = demoDict(); onDicoReady(); }
   function loadDemoExpr() { expressions = demoExpr(); onExprReady(); }
+  function loadDemoGram() { grammaire = buildGrammaireSections(demoGramRaw()); onGramReady(); }
 
   function demoDict() {
     return [
@@ -448,6 +517,39 @@
     ];
   }
 
+  // Données brutes grammaire : col A = titre (non vide = nouvelle section), B = FR, C = patois
+  function demoGramRaw() {
+    return [
+      {a:'Les articles définis',  b:'le / la / les',          c:'lo / la / lé'},
+      {a:'',                      b:'le chien',               c:'lo tian'},
+      {a:'',                      b:'la maison',              c:'la mèizon'},
+      {a:'',                      b:'les enfants',            c:'lé anfans'},
+      {a:'Les articles indéfinis',b:'un / une / des',         c:'un / una / dé'},
+      {a:'',                      b:'un homme',               c:'un omè'},
+      {a:'',                      b:'une femme',              c:'una fena'},
+      {a:'',                      b:'des fleurs',             c:'dé fleurs'},
+      {a:'Les pronoms personnels', b:'je / tu / il / elle',   c:'dzè / tu / el / ela'},
+      {a:'',                      b:'nous / vous / ils',      c:'no / vo / el'},
+    ];
+  }
+
+  // Regroupe les lignes brutes en sections : chaque ligne avec col A non vide = titre de section
+  function buildGrammaireSections(raw) {
+    const sections = [];
+    let current = null;
+    raw.forEach(row => {
+      if (row.a) {
+        // Nouvelle section
+        current = { titre: row.a, lignes: [] };
+        if (row.b || row.c) current.lignes.push({ fr: row.b, pa: row.c });
+        sections.push(current);
+      } else if (current && (row.b || row.c)) {
+        current.lignes.push({ fr: row.b, pa: row.c });
+      }
+    });
+    return sections;
+  }
+
   function onDicoReady() {
     updateStats();
     renderBrowse();
@@ -456,12 +558,17 @@
     setTimeout(() => setStatus('',''), 3500);
   }
   function onExprReady() {
+    updateStats();
     doExprSearch();
+  }
+  function onGramReady() {
+    updateStats();
+    renderGrammaire();
   }
 
   function updateStats() {
     document.getElementById('stats-bar').textContent =
-      `📚 ${dictionary.length} mot${dictionary.length>1?'s':''} · ${expressions.length} expression${expressions.length>1?'s':''} · Patois de Termignon`;
+      `📚 ${dictionary.length} mot${dictionary.length>1?'s':''} · ${expressions.length} expression${expressions.length>1?'s':''} · ${grammaire.length} règle${grammaire.length>1?'s':''} · Patois de Termignon`;
   }
 
   // ── CSV ──
@@ -489,7 +596,9 @@
     document.getElementById('expr-search-input').placeholder =
       d==='fr' ? 'Rechercher une expression en français…' : 'Rechercher une expression en patois…';
     openLetters.clear();
+    openGrammaire.clear();
     renderBrowse();
+    renderGrammaire();
     doSearch();
     doExprSearch();
   }
@@ -497,13 +606,14 @@
   // ── Tabs ──
   function setTab(tab) {
     currentTab = tab;
-    ['search','browse','expressions'].forEach(t => {
+    ['search','browse','grammaire','expressions'].forEach(t => {
       document.getElementById('tab-'+t).classList.toggle('active', t===tab);
     });
     document.getElementById('search-zone').style.display       = tab==='search'      ? '' : 'none';
     document.getElementById('result-count').style.display      = tab==='search'      ? '' : 'none';
     document.getElementById('results').style.display           = tab==='search'      ? '' : 'none';
     document.getElementById('browse-zone').style.display       = tab==='browse'      ? 'block' : 'none';
+    document.getElementById('grammaire-zone').style.display    = tab==='grammaire'   ? 'block' : 'none';
     document.getElementById('expressions-zone').style.display  = tab==='expressions' ? 'block' : 'none';
   }
 
@@ -622,6 +732,46 @@
     }).join('')}</div>`;
 
     cnt.textContent = `${list.length} expression${list.length>1?'s':''}${q?' trouvée'+( list.length>1?'s':''):''}`;
+  }
+
+  // ── Grammaire ──
+  function renderGrammaire() {
+    const zone = document.getElementById('grammaire-zone');
+    if (!grammaire.length) {
+      zone.innerHTML = '<div class="empty-state"><div class="icon">⏳</div><p>Chargement…</p></div>';
+      return;
+    }
+    zone.innerHTML = grammaire.map((section, idx) => {
+      const open = openGrammaire.has(idx);
+      const lignes = section.lignes.map((l, i) => {
+        const src = direction==='fr' ? l.fr : l.pa;
+        const tgt = direction==='fr' ? l.pa : l.fr;
+        return `<div class="gram-row">
+          <div class="gram-src">${src}</div>
+          <div class="gram-arrow">→</div>
+          <div class="gram-tgt">${tgt}</div>
+        </div>`;
+      }).join('');
+      return `<div class="gram-group">
+        <div class="gram-header${open?' open':''}" onclick="toggleGrammaire(${idx})">
+          <div class="gram-titre">${section.titre}</div>
+          <div class="gram-count">${section.lignes.length} exemple${section.lignes.length>1?'s':''}</div>
+          <div class="gram-chevron">▼</div>
+        </div>
+        <div class="gram-body${open?' open':''}" id="gb-${idx}">
+          ${lignes}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function toggleGrammaire(idx) {
+    openGrammaire.has(idx) ? openGrammaire.delete(idx) : openGrammaire.add(idx);
+    const body   = document.getElementById('gb-' + idx);
+    const header = body.previousElementSibling;
+    const open   = openGrammaire.has(idx);
+    body.classList.toggle('open', open);
+    header.classList.toggle('open', open);
   }
 
   // ── Helpers ──
