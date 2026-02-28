@@ -705,47 +705,6 @@
     document.getElementById('expressions-zone').style.display  = tab==='expressions' ? 'block' : 'none';
   }
 
-  // ── Infinite scroll ──
-  let searchList = [];
-  let searchPage = 0;
-  const PAGE_SIZE = 40;
-
-  function loadMoreResults() {
-    const box = document.getElementById('results');
-    const start = searchPage * PAGE_SIZE;
-    const more = searchList.slice(start, start + PAGE_SIZE);
-    if (!more.length) return;
-    searchPage++;
-    const dir = direction;
-    const q = document.getElementById('search-input').value.trim().toLowerCase();
-    more.forEach((e, i) => {
-      const src = dir==='fr'?e.fr:e.pa, tgt = dir==='fr'?e.pa:e.fr;
-      const lbl = dir==='fr'?'FR':'PA';
-      const hi  = q ? hl(src,q) : src;
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
-        <div class="card-arrow">→</div>
-        <div class="card-body">
-          <div class="card-source">${hi}</div>
-          <div class="card-target">${tgt}</div>
-        </div>
-        <div class="card-lang">${lbl}</div>
-        <button class="btn-comment" onclick="openComment('${src} → ${tgt}')" title="Commenter">💬</button>`;
-      box.appendChild(card);
-    });
-    document.getElementById('result-count').textContent =
-      `${Math.min(searchPage * PAGE_SIZE, searchList.length)} / ${searchList.length} mot${searchList.length>1?'s':''}`;
-  }
-
-  // Scroll listener for infinite scroll
-  window.addEventListener('scroll', () => {
-    if (document.getElementById('results').style.display === 'none') return;
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
-      loadMoreResults();
-    }
-  });
-
   // ── Recherche dictionnaire ──
   function doSearch() {
     const q   = document.getElementById('search-input').value.trim().toLowerCase();
