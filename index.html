@@ -509,13 +509,13 @@
 
 
   // ── Splash screen ──
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const splash = document.getElementById('splash');
+  setTimeout(() => {
+    const splash = document.getElementById('splash');
+    if (splash) {
       splash.classList.add('hide');
-      setTimeout(() => splash.remove(), 650);
-    }, 1800);
-  });
+      setTimeout(() => { if(splash.parentNode) splash.remove(); }, 650);
+    }
+  }, 1800);
 
   // ── Démarrage ──
   window.addEventListener('load', () => {
@@ -1250,13 +1250,13 @@
 
 
   // ── Splash screen ──
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const splash = document.getElementById('splash');
+  setTimeout(() => {
+    const splash = document.getElementById('splash');
+    if (splash) {
       splash.classList.add('hide');
-      setTimeout(() => splash.remove(), 650);
-    }, 1800);
-  });
+      setTimeout(() => { if(splash.parentNode) splash.remove(); }, 650);
+    }
+  }, 1800);
 
   // ── Démarrage ──
   window.addEventListener('load', () => {
