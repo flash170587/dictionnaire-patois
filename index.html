@@ -104,6 +104,29 @@
       padding: 0 1rem;
     }
     #splash.hide { opacity: 0; pointer-events: none; }
+
+    /* ── TABS 2 LIGNES ── */
+    #view-tabs { flex-direction: column; gap: 0.3rem; }
+    .tabs-row { display: flex; gap: 0.35rem; }
+    .tabs-row .tab-btn { flex: 1; }
+
+    /* ── INTRODUCTION ── */
+    #introduction-zone {
+      margin: 0.8rem 1rem 1rem;
+      background: var(--blanc);
+      border-radius: 10px;
+      padding: 1.2rem 1.3rem;
+      box-shadow: 0 2px 8px rgba(0,101,163,0.07);
+    }
+    .intro-line {
+      font-size: 0.92rem;
+      line-height: 1.75;
+      color: var(--brun);
+      text-align: left;
+      margin-bottom: 0.6rem;
+    }
+    .intro-line:last-child { margin-bottom: 0; }
+    .intro-line:empty { margin-bottom: 0.4rem; }
     /* ── STATUS ── */
     #load-status {
       margin: 0.55rem 1rem 0;
@@ -441,19 +464,28 @@
 
 <!-- TABS -->
 <div id="view-tabs">
-  <button class="tab-btn active"  id="tab-search"      onclick="setTab('search')">🔍 Recherche</button>
-  <button class="tab-btn"         id="tab-browse"      onclick="setTab('browse')">📖 Dictionnaire</button>
-  <button class="tab-btn"         id="tab-grammaire"   onclick="setTab('grammaire')">📝 Grammaire</button>
-  <button class="tab-btn"         id="tab-expressions" onclick="setTab('expressions')">💬 Expressions</button>
+  <div class="tabs-row">
+    <button class="tab-btn active" id="tab-introduction" onclick="setTab('introduction')">📜 Introduction</button>
+    <button class="tab-btn"        id="tab-search"       onclick="setTab('search')">🔍 Recherche</button>
+    <button class="tab-btn"        id="tab-browse"       onclick="setTab('browse')">📖 Dictionnaire</button>
+  </div>
+  <div class="tabs-row">
+    <button class="tab-btn"        id="tab-grammaire"    onclick="setTab('grammaire')">📝 Grammaire</button>
+    <button class="tab-btn"        id="tab-expressions"  onclick="setTab('expressions')">💬 Vocab./Expr.</button>
+    <button class="tab-btn"        id="tab-verbes"       onclick="setTab('verbes')">🔤 Verbes</button>
+  </div>
 </div>
 
+<!-- ── INTRODUCTION ── -->
+<div id="introduction-zone" style="display:block;"></div>
+
 <!-- ── RECHERCHE ── -->
-<div id="search-zone">
+<div id="search-zone" style="display:none;">
   <span class="search-icon">🔍</span>
   <input type="search" id="search-input" placeholder="Tapez un mot en français…" oninput="doSearch()" />
 </div>
-<div id="result-count"></div>
-<div id="results">
+<div id="result-count" style="display:none;"></div>
+<div id="results" style="display:none;">
   <div class="empty-state"><div class="icon">⏳</div><p>Chargement du dictionnaire…</p></div>
 </div>
 
@@ -473,22 +505,29 @@
   <div id="expr-list" style="margin:0.5rem 1rem 2rem;"></div>
 </div>
 
+<!-- ── VERBES ── -->
+<div id="verbes-zone" style="display:none; margin:1rem; padding:1.5rem; background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,101,163,0.07); color:var(--brun-light); text-align:center; font-style:italic;">
+  Cette section sera disponible prochainement.
+</div>
+
 <div id="stats-bar"></div>
 
 <script>
   // ╔══════════════════════════════════════════════════════╗
   // ║  CONFIGUREZ ICI VOS LIENS GOOGLE SHEETS             ║
   // ╚══════════════════════════════════════════════════════╝
+  const SHEET_INTRODUCTION = 'https://docs.google.com/spreadsheets/d/1_3mqc7SEnCo_7LywBkragMgukzZ9M8NT7YKMski3wSM/export?format=csv&gid=1425677272';
   const SHEET_DICO        = 'https://docs.google.com/spreadsheets/d/1_3mqc7SEnCo_7LywBkragMgukzZ9M8NT7YKMski3wSM/export?format=csv&gid=0';
   const SHEET_EXPRESSIONS = 'https://docs.google.com/spreadsheets/d/1_3mqc7SEnCo_7LywBkragMgukzZ9M8NT7YKMski3wSM/export?format=csv&gid=1734011386';
   const SHEET_GRAMMAIRE   = 'https://docs.google.com/spreadsheets/d/1_3mqc7SEnCo_7LywBkragMgukzZ9M8NT7YKMski3wSM/export?format=csv&gid=697526515';
   // ════════════════════════════════════════════════════════
 
+  let introduction = [];
   let dictionary   = [];
   let expressions  = [];
   let grammaire    = [];
   let direction    = 'fr';
-  let currentTab   = 'search';
+  let currentTab   = 'introduction';
   let openLetters  = new Set();
   let openGrammaire = new Set();
 
@@ -502,9 +541,13 @@
   }, 1800);
   // ── Démarrage ──
   window.addEventListener('load', () => {
+    const hasIntro = SHEET_INTRODUCTION && SHEET_INTRODUCTION !== 'VOTRE_LIEN_FEUILLE_INTRODUCTION';
     const hasDico = SHEET_DICO && SHEET_DICO !== 'VOTRE_LIEN_FEUILLE_DICTIONNAIRE';
     const hasExpr = SHEET_EXPRESSIONS && SHEET_EXPRESSIONS !== 'VOTRE_LIEN_FEUILLE_EXPRESSIONS';
     const hasGram = SHEET_GRAMMAIRE && SHEET_GRAMMAIRE !== 'VOTRE_LIEN_FEUILLE_GRAMMAIRE';
+
+    if (hasIntro) loadSheet(SHEET_INTRODUCTION, 'intro');
+    else loadDemoIntro();
 
     if (hasDico) loadSheet(SHEET_DICO, 'dico');
     else { loadDemoDict(); }
@@ -543,7 +586,19 @@
       const pa = (cols[1]||'').trim();
       if (fr && pa) data.push({fr, pa});
     }
-    if (type === 'dico') {
+    if (type === 'intro') {
+      introduction = [];
+      const linesI = text.trim().split('\n');
+      const startI = isHeader(linesI[0]) ? 1 : 0;
+      for (let i = startI; i < linesI.length; i++) {
+        const colsI = splitCSV(linesI[i]);
+        const line = (colsI[0]||'').trim();
+        if (line) introduction.push(line);
+      }
+      if (!introduction.length) loadDemoIntro();
+      else renderIntroduction();
+      return;
+    } else if (type === 'dico') {
       dictionary = data.length ? data : demoDict();
       onDicoReady();
     } else if (type === 'expr') {
@@ -569,6 +624,24 @@
       grammaire = raw.length ? buildGrammaireSections(raw) : buildGrammaireSections(demoGramRaw());
       onGramReady();
     }
+  }
+
+  function loadDemoIntro() {
+    introduction = [
+      "Bienvenue dans le Dictionnaire Patois de Termignon.",
+      "Ce dictionnaire vous permet de rechercher des mots et expressions en français et en Patois de Termignon.",
+      "Utilisez les onglets pour naviguer entre les différentes sections.",
+      "Le lien Google Sheets Introduction n'est pas encore configuré."
+    ];
+    renderIntroduction();
+  }
+
+  function renderIntroduction() {
+    const zone = document.getElementById('introduction-zone');
+    if (!zone) return;
+    zone.innerHTML = introduction.map(line =>
+      `<p class="intro-line">${line}</p>`
+    ).join('');
   }
 
   function loadDemoDict() { dictionary = demoDict(); onDicoReady(); }
@@ -690,15 +763,18 @@
   // ── Tabs ──
   function setTab(tab) {
     currentTab = tab;
-    ['search','browse','grammaire','expressions'].forEach(t => {
-      document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+    ['introduction','search','browse','grammaire','expressions','verbes'].forEach(t => {
+      const el = document.getElementById('tab-'+t);
+      if (el) el.classList.toggle('active', t===tab);
     });
-    document.getElementById('search-zone').style.display       = tab==='search'      ? '' : 'none';
-    document.getElementById('result-count').style.display      = tab==='search'      ? '' : 'none';
-    document.getElementById('results').style.display           = tab==='search'      ? '' : 'none';
-    document.getElementById('browse-zone').style.display       = tab==='browse'      ? 'block' : 'none';
-    document.getElementById('grammaire-zone').style.display    = tab==='grammaire'   ? 'block' : 'none';
-    document.getElementById('expressions-zone').style.display  = tab==='expressions' ? 'block' : 'none';
+    document.getElementById('introduction-zone').style.display = tab==='introduction' ? 'block' : 'none';
+    document.getElementById('search-zone').style.display       = tab==='search'       ? '' : 'none';
+    document.getElementById('result-count').style.display      = tab==='search'       ? '' : 'none';
+    document.getElementById('results').style.display           = tab==='search'       ? '' : 'none';
+    document.getElementById('browse-zone').style.display       = tab==='browse'       ? 'block' : 'none';
+    document.getElementById('grammaire-zone').style.display    = tab==='grammaire'    ? 'block' : 'none';
+    document.getElementById('expressions-zone').style.display  = tab==='expressions'  ? 'block' : 'none';
+    document.getElementById('verbes-zone').style.display       = tab==='verbes'       ? 'block' : 'none';
   }
 
   // ── Recherche dictionnaire ──
