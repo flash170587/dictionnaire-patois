@@ -874,19 +874,21 @@
       </div>`;
     }).join('');
 
-    // Section "Toutes les expressions" tout en bas
-    const allSection = `<div class="letter-group all-expr-group">
-      <div class="letter-header all-expr-header${openAll?' open':''}" onclick="toggleExpr(${ALL_IDX})">
+    // Section 'Toutes les expressions' ajoutée via appendChild ci-dessous
+
+    // Construire le HTML final en deux étapes pour éviter les problèmes mobile
+    zone.innerHTML = sectionsHTML;
+    const allDiv = document.createElement('div');
+    allDiv.className = 'letter-group all-expr-group';
+    allDiv.innerHTML = `<div class="letter-header all-expr-header${openAll?' open':''}" onclick="toggleExpr(${ALL_IDX})">
         <div class="letter-badge">📋</div>
         <div class="letter-label">Toutes les expressions (${toutesLignes.length})</div>
         <div class="letter-chevron">▼</div>
       </div>
       <div class="letter-body${openAll?' open':''}" id="eb-${ALL_IDX}">
         ${allLignesHTML}
-      </div>
-    </div>`;
-
-    zone.innerHTML = sectionsHTML + allSection;
+      </div>`;
+    zone.appendChild(allDiv);
   }
 
   function toggleExpr(idx) {
