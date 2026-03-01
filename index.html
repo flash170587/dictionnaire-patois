@@ -451,12 +451,12 @@
 
 <!-- ── EXPRESSIONS ── -->
 <div id="expressions-zone">
-  <div id="expr-search-zone" style="margin-top:0.7rem">
-    <span class="search-icon" style="left:1.85rem">🔍</span>
+  <div id="expr-search-zone" style="margin:0.7rem 1rem 0;position:relative;">
+    <span class="search-icon">🔍</span>
     <input type="search" id="expr-search-input" placeholder="Rechercher une expression…" oninput="doExprSearch()" />
   </div>
-  <div id="expr-count"></div>
-  <div id="expr-list"></div>
+  <div id="expr-count" style="font-size:0.73rem;color:var(--brun-light);margin:0.38rem 0 0 1.1rem;min-height:1rem;"></div>
+  <div id="expr-list" style="margin:0.5rem 1rem 2rem;"></div>
 </div>
 
 <div id="stats-bar"></div>
@@ -533,7 +533,15 @@
       dictionary = data.length ? data : demoDict();
       onDicoReady();
     } else if (type === 'expr') {
-      expressions = data.length ? data : demoExpr();
+      // Expressions : col A = titre section, col B = français, col C = patois
+      const rawExpr = [];
+      const linesE = text.trim().split('\n');
+      const startE = isHeader(linesE[0]) ? 1 : 0;
+      for (let i = startE; i < linesE.length; i++) {
+        const colsE = splitCSV(linesE[i]);
+        rawExpr.push({ a: (colsE[0]||'').trim(), b: (colsE[1]||'').trim(), c: (colsE[2]||'').trim() });
+      }
+      expressions = rawExpr.length ? buildSections(rawExpr) : demoExpr();
       onExprReady();
     } else {
       // grammaire : col A = titre section, col B = texte français, col C = texte patois
@@ -550,7 +558,7 @@
   }
 
   function loadDemoDict() { dictionary = demoDict(); onDicoReady(); }
-  function loadDemoExpr() { expressions = demoExpr(); onExprReady(); }
+  function loadDemoExpr() { expressions = buildSections(demoExprRaw()); onExprReady(); }
   function loadDemoGram() { grammaire = buildGrammaireSections(demoGramRaw()); onGramReady(); }
 
   function demoDict() {
@@ -565,13 +573,29 @@
       {fr:'Vent',pa:'Van'},{fr:'Vache',pa:'Vatse'},{fr:'Village',pa:'Vilâdzo'},
     ];
   }
-  function demoExpr() {
+  function demoExprRaw() {
     return [
-      {fr:'Comment vas-tu ?',pa:'Coment que vas ?'},
-      {fr:'Je ne sais pas.',pa:'Dzè sé pa.'},
-      {fr:'Il fait beau aujourd\'hui.',pa:'Fé bô odiér.'},
-      {fr:'Bonne nuit !',pa:'Bona nuè !'},
+      {a:'Salutations',      b:'Comment vas-tu ?',          c:'Coment que vas ?'},
+      {a:'',                 b:'Bonne nuit !',               c:'Bona nuè !'},
+      {a:'Expressions courantes', b:'Je ne sais pas.',       c:'Dzè sé pa.'},
+      {a:'',                 b:'Il fait beau aujourd\'hui.', c:'Fé bô odiér.'},
     ];
+  }
+
+  // Fonction partagée pour construire des sections depuis col A/B/C
+  function buildSections(raw) {
+    const sections = [];
+    let current = null;
+    raw.forEach(row => {
+      if (row.a) {
+        current = { titre: row.a, lignes: [] };
+        if (row.b || row.c) current.lignes.push({ fr: row.b, pa: row.c });
+        sections.push(current);
+      } else if (current && (row.b || row.c)) {
+        current.lignes.push({ fr: row.b, pa: row.c });
+      }
+    });
+    return sections;
   }
 
   // Données brutes grammaire : col A = titre (non vide = nouvelle section), B = FR, C = patois
@@ -590,22 +614,8 @@
     ];
   }
 
-  // Regroupe les lignes brutes en sections : chaque ligne avec col A non vide = titre de section
-  function buildGrammaireSections(raw) {
-    const sections = [];
-    let current = null;
-    raw.forEach(row => {
-      if (row.a) {
-        // Nouvelle section
-        current = { titre: row.a, lignes: [] };
-        if (row.b || row.c) current.lignes.push({ fr: row.b, pa: row.c });
-        sections.push(current);
-      } else if (current && (row.b || row.c)) {
-        current.lignes.push({ fr: row.b, pa: row.c });
-      }
-    });
-    return sections;
-  }
+  // buildGrammaireSections utilise la fonction commune buildSections
+  function buildGrammaireSections(raw) { return buildSections(raw); }
 
   function onDicoReady() {
     updateStats();
@@ -616,6 +626,7 @@
   }
   function onExprReady() {
     updateStats();
+    renderExpressions();
     doExprSearch();
   }
   function onGramReady() {
@@ -654,8 +665,10 @@
       d==='fr' ? 'Rechercher une expression en français…' : 'Rechercher une expression en patois…';
     openLetters.clear();
     openGrammaire.clear();
+    openExpressions.clear();
     renderBrowse();
     renderGrammaire();
+    renderExpressions();
     doSearch();
     doExprSearch();
   }
@@ -761,34 +774,82 @@
     body.classList.toggle('open',open); header.classList.toggle('open',open);
   }
 
-  // ── Expressions ──
+  // ── Expressions (accordéon comme grammaire) ──
+  let openExpressions = new Set();
+
   function doExprSearch() {
     const q   = document.getElementById('expr-search-input').value.trim().toLowerCase();
-    const box = document.getElementById('expr-list');
     const cnt = document.getElementById('expr-count');
-    if (!expressions.length) { box.innerHTML='<div class="empty-state"><div class="icon">⏳</div><p>Chargement…</p></div>'; return; }
-
-    let list = q
-      ? expressions.filter(e => (direction==='fr'?e.fr:e.pa).toLowerCase().includes(q))
-      : [...expressions];
-
-    if (!list.length) {
-      box.innerHTML='<div class="empty-state"><div class="icon">🔎</div><p>Aucune expression trouvée.</p></div>';
-      cnt.textContent='Aucun résultat'; return;
+    if (!expressions.length) return;
+    if (q) {
+      // En mode recherche : afficher toutes les lignes qui correspondent à plat
+      let results = [];
+      expressions.forEach(section => {
+        section.lignes.forEach(l => {
+          const searchIn = direction==='fr' ? l.fr : l.pa;
+          if (searchIn.toLowerCase().includes(q)) results.push({section: section.titre, fr: l.fr, pa: l.pa});
+        });
+      });
+      const box = document.getElementById('expr-list');
+      if (!results.length) {
+        box.innerHTML = '<div class="empty-state"><div class="icon">🔎</div><p>Aucune expression trouvée.</p></div>';
+        cnt.textContent = 'Aucun résultat'; return;
+      }
+      box.innerHTML = '<div class="expr-list">' + results.map(r => {
+        const src = direction==='fr'?r.fr:r.pa, tgt = direction==='fr'?r.pa:r.fr;
+        return `<div class="expr-row">
+          <div class="expr-src">${hl(src,q)}</div>
+          <div class="expr-arrow">→</div>
+          <div class="expr-tgt">${tgt}</div>
+          <button class="btn-comment" onclick="openComment('${src} → ${tgt}')" title="Commenter">💬</button>
+        </div>`;
+      }).join('') + '</div>';
+      cnt.textContent = `${results.length} résultat${results.length>1?'s':''}`;
+    } else {
+      renderExpressions();
+      const total = expressions.reduce((s,sec) => s + sec.lignes.length, 0);
+      cnt.textContent = `${expressions.length} thème${expressions.length>1?'s':''} · ${total} expression${total>1?'s':''}`;
     }
+  }
 
-    box.innerHTML = `<div class="expr-list">${list.map(e=>{
-      const src=direction==='fr'?e.fr:e.pa, tgt=direction==='fr'?e.pa:e.fr;
-      const hi=q?hl(src,q):src;
-      return `<div class="expr-row">
-        <div class="expr-src">${hi}</div>
-        <div class="expr-arrow">→</div>
-        <div class="expr-tgt">${tgt}</div>
-        <button class="btn-comment" onclick="openComment('${e.fr} → ${e.pa}')" title="Commenter">💬</button>
+  function renderExpressions() {
+    const zone = document.getElementById('expr-list');
+    if (!expressions.length) {
+      zone.innerHTML = '<div class="empty-state"><div class="icon">⏳</div><p>Chargement…</p></div>';
+      return;
+    }
+    zone.innerHTML = expressions.map((section, idx) => {
+      const open = openExpressions.has(idx);
+      const lignes = section.lignes.map(l => {
+        const src = direction==='fr' ? l.fr : l.pa;
+        const tgt = direction==='fr' ? l.pa : l.fr;
+        return `<div class="expr-row">
+          <div class="expr-src">${src}</div>
+          <div class="expr-arrow">→</div>
+          <div class="expr-tgt">${tgt}</div>
+          <button class="btn-comment" onclick="openComment('${src} → ${tgt}')" title="Commenter">💬</button>
+        </div>`;
+      }).join('');
+      return `<div class="letter-group">
+        <div class="letter-header${open?' open':''}" onclick="toggleExpr(${idx})">
+          <div class="letter-badge" style="font-size:0.9rem;width:auto;padding-right:0.3rem;">💬</div>
+          <div class="letter-label">${section.titre}</div>
+          <div class="letter-chevron">▼</div>
+        </div>
+        <div class="letter-body${open?' open':''}" id="eb-${idx}">
+          ${lignes}
+        </div>
       </div>`;
-    }).join('')}</div>`;
+    }).join('');
+  }
 
-    cnt.textContent = `${list.length} expression${list.length>1?'s':''}${q?' trouvée'+( list.length>1?'s':''):''}`;
+  function toggleExpr(idx) {
+    openExpressions.has(idx) ? openExpressions.delete(idx) : openExpressions.add(idx);
+    const body   = document.getElementById('eb-' + idx);
+    const header = body.previousElementSibling;
+    const open   = openExpressions.has(idx);
+    body.classList.toggle('open', open);
+    header.classList.toggle('open', open);
   }
 
   // ── Grammaire ──
