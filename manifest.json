@@ -1,0 +1,15 @@
+{
+  "name": "Dictionnaire Patois de Termignon",
+  "short_name": "Patois Termignon",
+  "start_url": "/Patois-de-Termignon/",
+  "display": "standalone",
+  "background_color": "#0065A3",
+  "theme_color": "#0065A3",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
