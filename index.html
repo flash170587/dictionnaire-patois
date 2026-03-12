@@ -639,6 +639,55 @@
   }
 
   function parseCSV(text, type) {
+
+    // ── Introduction : une seule colonne de texte libre ──
+    if (type === 'intro') {
+      introduction = [];
+      const linesI = text.trim().split('\n');
+      const startI = isHeader(linesI[0]) ? 1 : 0;
+      for (let i = startI; i < linesI.length; i++) {
+        const line = (splitCSV(linesI[i])[0]||'').trim();
+        if (line) introduction.push(line);
+      }
+      if (!introduction.length) loadDemoIntro();
+      else renderIntroduction();
+      return;
+    }
+
+    // ── Mode d'emploi : 5 colonnes A/B/C/D/E ──
+    if (type === 'gram') {
+      const raw = [];
+      const lines2 = text.trim().split('\n');
+      const firstCols2 = splitCSV(lines2[0]);
+      const start2 = (firstCols2[0]||'').trim() === '' ? 1 : 0;
+      for (let i = start2; i < lines2.length; i++) {
+        const c = splitCSV(lines2[i]);
+        raw.push({
+          a: (c[0]||'').trim(), b: (c[1]||'').trim(),
+          c: (c[2]||'').trim(), d: (c[3]||'').trim(), e: (c[4]||'').trim()
+        });
+      }
+      grammaire = raw.length ? buildModeSections(raw) : buildModeSections(demoGramRaw());
+      onGramReady();
+      return;
+    }
+
+    // ── Expressions : 3 colonnes A/B/C ──
+    if (type === 'expr') {
+      const rawExpr = [];
+      const linesE = text.trim().split('\n');
+      const firstColsE = splitCSV(linesE[0]);
+      const startE = (firstColsE[0]||'').trim() === '' ? 1 : 0;
+      for (let i = startE; i < linesE.length; i++) {
+        const c = splitCSV(linesE[i]);
+        rawExpr.push({ a: (c[0]||'').trim(), b: (c[1]||'').trim(), c: (c[2]||'').trim() });
+      }
+      expressions = rawExpr.length ? buildSections(rawExpr) : demoExpr();
+      onExprReady();
+      return;
+    }
+
+    // ── Dictionnaire : 2 colonnes Français/Patois ──
     const lines = text.trim().split('\n');
     const data  = [];
     const start = isHeader(lines[0]) ? 1 : 0;
@@ -648,56 +697,11 @@
       const pa = (cols[1]||'').trim();
       if (fr && pa) data.push({fr, pa});
     }
-    if (type === 'intro') {
-      introduction = [];
-      const linesI = text.trim().split('\n');
-      const startI = isHeader(linesI[0]) ? 1 : 0;
-      for (let i = startI; i < linesI.length; i++) {
-        const colsI = splitCSV(linesI[i]);
-        const line = (colsI[0]||'').trim();
-        if (line) introduction.push(line);
-      }
-      if (!introduction.length) loadDemoIntro();
-      else renderIntroduction();
-      return;
-    } else if (type === 'dico') {
-      dictionary = data.length ? data : demoDict();
-      onDicoReady();
-    } else if (type === 'expr') {
-      // Expressions : col A = titre section, col B = français, col C = patois
-      const rawExpr = [];
-      const linesE = text.trim().split('\n');
-      const firstColsE = splitCSV(linesE[0]);
-      const startE = (firstColsE[0]||'').trim() === '' ? 1 : 0;
-      for (let i = startE; i < linesE.length; i++) {
-        const colsE = splitCSV(linesE[i]);
-        rawExpr.push({ a: (colsE[0]||'').trim(), b: (colsE[1]||'').trim(), c: (colsE[2]||'').trim() });
-      }
-      expressions = rawExpr.length ? buildSections(rawExpr) : demoExpr();
-      onExprReady();
-    } else {
-      // Mode d'emploi : col A=titre, B=Explication, C=Détails, D=Français, E=Patois
-      const raw = [];
-      const lines2 = text.trim().split('\n');
-      // Ne sauter la première ligne que si col A est vide (vraie ligne d'en-tête sans titre de section)
-      const firstCols2 = splitCSV(lines2[0]);
-      const start2 = (firstCols2[0]||'').trim() === '' ? 1 : 0;
-      for (let i = start2; i < lines2.length; i++) {
-        const cols2 = splitCSV(lines2[i]);
-        raw.push({
-          a: (cols2[0]||'').trim(),
-          b: (cols2[1]||'').trim(),
-          c: (cols2[2]||'').trim(),
-          d: (cols2[3]||'').trim(),
-          e: (cols2[4]||'').trim()
-        });
-      }
-      grammaire = raw.length ? buildModeSections(raw) : buildModeSections(demoGramRaw());
-      onGramReady();
-    }
+    dictionary = data.length ? data : demoDict();
+    onDicoReady();
   }
 
-  function loadDemoIntro() {
+    function loadDemoIntro() {
     introduction = [
       "Bienvenue dans le Dictionnaire Patois de Termignon.",
       "Ce dictionnaire vous permet de rechercher des mots et expressions en français et en Patois de Termignon.",
