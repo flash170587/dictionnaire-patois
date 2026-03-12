@@ -611,18 +611,18 @@
   // ── Chargement Google Sheets ──
   async function loadSheet(url, type) {
     setStatus('⏳ Chargement…', '');
-    // Liste de proxys CORS en cascade — si l'un échoue on essaie le suivant
-    const proxies = [
-      'https://corsproxy.io/?' + encodeURIComponent(url),
+    // Tentatives : d'abord direct, puis proxys de secours
+    const attempts = [
+      url,  // Direct - fonctionne si le Sheet est public
       'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-      'https://cors-anywhere.herokuapp.com/' + url,
+      'https://corsproxy.io/?' + encodeURIComponent(url),
     ];
-    for (const proxy of proxies) {
+    for (const attempt of attempts) {
       try {
-        const res = await fetch(proxy);
+        const res = await fetch(attempt, { cache: 'no-store' });
         if (!res.ok) continue;
         const text = await res.text();
-        if (text && text.length > 10) {
+        if (text && text.length > 10 && !text.includes('<html')) {
           parseCSV(text, type);
           return;
         }
@@ -630,7 +630,7 @@
         continue;
       }
     }
-    // Tous les proxys ont échoué
+    // Tout a échoué
     setStatus('❌ Erreur chargement — données de démo activées', 'err');
     if (type === 'dico') loadDemoDict();
     else if (type === 'expr') loadDemoExpr();
