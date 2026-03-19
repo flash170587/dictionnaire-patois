@@ -1471,7 +1471,7 @@
       var border = active ? 'var(--bleu)' : '#d0dce8';
       var bg = active ? 'var(--bleu)' : 'var(--blanc)';
       var color = active ? '#fff' : 'var(--brun-light)';
-      html += '<button onclick="setQuizSource(' + JSON.stringify(s) + ')" ';
+      html += '<button onclick="setQuizSource(\'' + s + '\')" ';
       html += 'style="flex:1;padding:0.45rem 0.3rem;border:2px solid ' + border + ';';
       html += 'border-radius:8px;background:' + bg + ';color:' + color + ';';
       html += 'font-size:0.72rem;font-weight:700;cursor:pointer;font-family:Lato,sans-serif;">';
