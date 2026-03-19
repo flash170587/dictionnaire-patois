@@ -1389,7 +1389,7 @@
               var pronFR = pronounsFR[i]||'';
               var pronPA = pronounsPA[i]||'';
               var fr = pronFR + ' - ' + verbe.titre + ' (' + temps + ')';
-              var pa = (pronPA+' '+c).trim();
+              var pa = c; // La conjugaison seule, sans le pronom patois devant
               pool.push({ question: direction==='fr'?fr:pa, answer: direction==='fr'?pa:fr, source: 'Verbes' });
             });
           }
